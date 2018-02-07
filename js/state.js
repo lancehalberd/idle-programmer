@@ -1,6 +1,6 @@
 var state = {
     cyclesChanged: true,
-    cycles: 2000,
+    cycles: 5000,
     clockSpeed: 0
 };
 

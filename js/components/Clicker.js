@@ -14,7 +14,10 @@ function rerollClickerButtons(indexClicked) {
         }
         state.clicker.choices[i] = Math.floor((1 + Math.random()) * factor * state.clicker.range);
     }
-    updateGameSections = true;
+    const buttons = (game && game.children.clicker.children.buttons) || [];
+    for (var i = 0; i < buttons.length; i++) {
+        buttons[i].markToUpdate();
+    }
 }
 
 class Clicker extends Component {
@@ -46,6 +49,10 @@ class Clicker extends Component {
 }
 
 class ClickerButton extends Component {
+    constructor(props) {
+        super(props);
+        this.addMjsMethods(['click', 'value']);
+    }
     render() {
         return `<button class="js-cycleButton gameButton smallButton" action="${this.path}click();">
             ${state.clicker.choices[this.index]}
@@ -56,10 +63,16 @@ class ClickerButton extends Component {
         rerollClickerButtons(this.index);
         return true;
     }
+    value() {
+        return state.clicker.choices[this.index];
+    }
 }
-ClickerButton.prototype.click._mjsCallable = true;
 
 class ClickerRange extends BuyAction {
+    constructor(props) {
+        super(props);
+        this.addMjsMethods(['price', 'minValue', 'maxValue']);
+    }
     renderHeader() {
         return `<span>
                 Range ${this.child(Text, {action: 'this.minValue();'})} -
@@ -82,12 +95,12 @@ class ClickerRange extends BuyAction {
         return true;
     }
 }
-ClickerRange.prototype.price._mjsCallable = true;
-ClickerRange.prototype.minValue._mjsCallable = true;
-ClickerRange.prototype.maxValue._mjsCallable = true;
-
 
 class ClickerChoices extends BuyAction {
+    constructor(props) {
+        super(props);
+        this.addMjsMethods(['price', 'value', 'bonus']);
+    }
     renderHeader() {
         return `<span>Choices ${this.child(Text, {action: 'this.value();'})} </span>
                 <span>Bonus x${this.child(Text, {action: 'this.bonus();'})} </span>`;
@@ -111,8 +124,3 @@ class ClickerChoices extends BuyAction {
         return true;
     }
 }
-ClickerChoices.prototype.price._mjsCallable = true;
-ClickerChoices.prototype.value._mjsCallable = true;
-ClickerChoices.prototype.bonus._mjsCallable = true;
-
-

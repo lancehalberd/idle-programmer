@@ -1,5 +1,9 @@
 
 class BuyAction extends Component {
+    constructor(props) {
+        super(props);
+        this.addMjsMethods(['buy']);
+    }
     render() {
         let buyRow = '';
         if (this.available()) {
@@ -25,4 +29,3 @@ class BuyAction extends Component {
         return true;
     }
 }
-BuyAction.prototype.buy._mjsCallable = true;

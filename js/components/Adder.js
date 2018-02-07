@@ -13,6 +13,10 @@ function rerollOperands() {
 }
 
 class Adder extends Component {
+    constructor(props) {
+        super(props);
+        this.addMjsMethods(['submitAnswer','price','buy','operand','operator']);
+    }
     render() {
         if (!state.adder.unlocked) {
             return `<div class="sectionAction" style="width: 200px;">
@@ -36,7 +40,7 @@ class Adder extends Component {
                     <div class="sectionContent">
                         <div class="flexRow">
                             ${this.getOperands()}&nbsp;=&nbsp;
-                            <input id="adderAnswer" class="gameInput" submit-action="${this.path}submitAnswer({value})">
+                            <input id="adderAnswer" class="gameInput" submit-action="${this.path}submitAnswer({value});">
                         </div>
                     </div>
                 </div>
@@ -45,7 +49,7 @@ class Adder extends Component {
     getOperands() {
         const operands = [];
         for (let index = 0; index < state.adder.operands.length; index++) {
-            operands.push( this.child(Text, {action: `this.operand(${index})`}) );
+            operands.push( this.child(Text, {action: `this.operand(${index});`}) );
         }
         return operands.join( '&nbsp;' + this.child(Text, {action: `this.operator();`}) + '&nbsp;' );
     }
@@ -82,13 +86,12 @@ class Adder extends Component {
         return false;
     }
 }
-Adder.prototype.price._mjsCallable = true;
-Adder.prototype.buy._mjsCallable = true;
-Adder.prototype.operand._mjsCallable = true;
-Adder.prototype.operator._mjsCallable = true;
-Adder.prototype.submitAnswer._mjsCallable = true;
 
 class AdderRange extends BuyAction {
+    constructor(props) {
+        super(props);
+        this.addMjsMethods(['price','minValue','maxValue']);
+    }
     renderHeader() {
         return `<span>
                     Range ${this.child(Text, {action: 'this.minValue();'})} -
@@ -111,11 +114,12 @@ class AdderRange extends BuyAction {
         return true;
     }
 }
-AdderRange.prototype.price._mjsCallable = true;
-AdderRange.prototype.minValue._mjsCallable = true;
-AdderRange.prototype.maxValue._mjsCallable = true;
 
 class AdderOperands extends BuyAction {
+    constructor(props) {
+        super(props);
+        this.addMjsMethods(['price','value']);
+    }
     renderHeader() {
         return `<span>Terms ${this.child(Text, {action: 'this.value();'})} </span>`;
     }
@@ -135,6 +139,4 @@ class AdderOperands extends BuyAction {
         return true;
     }
 }
-AdderOperands.prototype.price._mjsCallable = true;
-AdderOperands.prototype.value._mjsCallable = true;
 

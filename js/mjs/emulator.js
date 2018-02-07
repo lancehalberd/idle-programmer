@@ -62,25 +62,34 @@ class RootScope {
     }
 }
 
+function getCycles() {
+    return state.cycles;
+}
+getCycles._mjsCallable = true;
+
 function makeRootScope() {
-    return new RootScope({ui: game, log: logInfo});
+    return new RootScope({ui: game, log: logInfo, cycles: getCycles});
 }
 
-function parseAndRunProgram(program, rootScope = {}, steps = 10) {
-    return runProgram(parseProgram(program), rootScope, steps);
+function parseAndRunProgram(program, rootScope = {}, steps = 10, fromSystem = false) {
+    return runProgram(parseProgram(program), rootScope, steps, fromSystem);
 }
 
 function parseProgram(program) {
     return mjs.parse(program);
 }
 
-function runProgram(program, rootScope = {}, steps = 1) {
+function runProgram(program, rootScope = {}, steps = 1, fromSystem = false) {
     var rootNode = new ProcessNode({programNode: program, scope: rootScope});
-    return runProgramSteps(rootNode, steps);
+    return runProgramSteps(rootNode, steps, fromSystem);
 }
 
-function runProgramSteps(currentNode, steps) {
+function runProgramSteps(currentNode, steps, fromSystem) {
     while (steps-- > 0) {
+        if (!fromSystem && !spendCycles(1)) {
+            logError('Ran out of cycles!');
+            return;
+        }
         currentNode = runProgramStep(currentNode);
         // Once the program is finished, return the value of the last statement.
         if (!(currentNode instanceof ProcessNode)) return currentNode;
@@ -101,14 +110,15 @@ function runProgramStep(node) {
                 return node.parentNode;
             }
             // If this is the root node, just return the final result.
-            return node.consumeLastResult();
+            let value = node.consumeLastResult();
+            if (value && value._mjsEvaluate) value = value._mjsEvaluate();
+            return value;
         }
         // Return the node for processing the next statement.
         return new ProcessNode({programNode: node.arrayToProcess[node.nextIndexToProcess++], node});
     }
     // This will happen when an empty node or string/number/boolean is reached.
     if (!node.programNode || !(node.programNode instanceof Object)) {
-        console.log('result is', node.programNode);
         node.parentNode.setLastResult(node.programNode);
         return node.parentNode;
     }
@@ -294,6 +304,7 @@ function runProgramStep(node) {
             return new ProcessNode({programNode: node.programNode.expression, node});
         }
         var result = node.consumeLastResult();
+        if (result && result._mjsEvaluate) result = result._mjsEvaluate();
         switch (node.programNode.operator){
             case '-':
                 result = -result;
@@ -307,13 +318,12 @@ function runProgramStep(node) {
     }
     // This is just used to retrieve the value of a variable (as opposed to returning targeting info for it).
     if (node.programNode.type === 'evaluate') {
-        var value = getNodeTarget(node);
-        if (value && value._mjsEvaluate) value = value._mjsEvaluate();
-        node.parentNode.setLastResult(value);
+        node.parentNode.setLastResult(getNodeTarget(node));
         return node.parentNode;
     }
     if (node.programNode.type === 'incrementBefore') {
         var currentValue = node.targetObject._mjsRead(node.targetKey);
+        if (currentValue && currentValue._mjsEvaluate) currentValue = currentValue._mjsEvaluate();
         if (node.programNode.operator === '++') currentValue++;
         else currentValue--;
         writeToNodeTarget(node, currentValue);
@@ -322,6 +332,7 @@ function runProgramStep(node) {
     }
     if (node.programNode.type === 'incrementAfter') {
         var currentValue = node.targetObject._mjsRead(node.targetKey);
+        if (currentValue && currentValue._mjsEvaluate) currentValue = currentValue._mjsEvaluate();
         node.parentNode.setLastResult(currentValue);
         if (node.programNode.operator === '++') currentValue++;
         else currentValue--;
@@ -329,7 +340,8 @@ function runProgramStep(node) {
         return node.parentNode;
     }
     if (node.programNode.type === 'delete') {
-        delete node.targetObject[node.targetKey];
+        writeToNodeTarget(node, undefined);
+        // delete node.targetObject[node.targetKey];
         return node.parentNode;
     }
     if (node.programNode.type === 'readVariable') {
@@ -401,6 +413,8 @@ function writeToNodeTarget(node, value) {
 }
 
 function evaluateBinaryExpression(l, o, r) {
+    if (l && l._mjsEvaluate) l = l._mjsEvaluate();
+    if (r && r._mjsEvaluate) r = r._mjsEvaluate();
     switch (o) {
         case '||': return l || r;
         case '&&': return l && r;

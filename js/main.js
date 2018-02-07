@@ -20,16 +20,58 @@ $(document).on('mouseup', event => {
 });
 
 // Loop for updating the display of the game.
-var updateGameSections = true;
 var mainLoop = () => {
     if (state.cyclesChanged) {
         state.cyclesChanged = false;
         $('.js-cycles').text(state.cycles.abbreviate());
     }
-    // Right now we have to update everything when the game changes...
-    if (updateGameSections) {
-        $('.js-gameSections').html(game.render());
-        updateGameSections = false;
+    // Right now we have to update everything when the game changes...\
+    if (game.needsUpdate) {
+        var newContent = game.render();
+        if (!$('.js-gameSections').find('div').length) {
+            $('.js-gameSections').html(newContent);
+        } else {
+            var $newContent = $(newContent);
+            var $updated = $newContent.find('.cmp-updated').first();
+            var queue = $updated.length ? [$updated] : [];
+            var safety = 0;
+            while (queue.length && safety++ < 1000) {
+                $updated = queue.shift();
+                var $updatedChild = $updated.find('.cmp-updated').first();
+                if ($updatedChild.length) {
+                    queue.unshift($updated);
+                    queue.unshift($updatedChild);
+                } else {
+                    // If this is the inner most updated component, find the markup for the current version,
+                    // and replace it with the new version if they are actually different.
+                    $updated.removeClass('cmp-updated');
+                    var id = $updated.attr('id');
+                    var $element = $(`#${id}`);
+                    if ($element.length !== 1) {
+                        throw new Error(`Found ${$element.length} instances of element with id ${id}, expected exactly 1!`);
+                    }
+                    if ($element[0].outerHTML !== $updated[0].outerHTML) {
+                        // console.log($element[0].outerHTML, '->', $updated[0].outerHTML);
+                        // console.log(`updating ${id}`);
+                        $element.replaceWith($updated.clone());
+                    }
+                }
+                // If the queue is empty, check to see if there are any more updated components to consider.
+                if (!queue.length) {
+                    $updated = $newContent.find('.cmp-updated').first();
+                    if ($updated.length) {
+                        queue = [$updated];
+                    }
+                }
+            }
+            if (safety >= 1000) {
+                console.log(new Error('infinite loop?'));
+            }
+        }
+        $('.cmp-updated').removeClass('cmp-updated');
+        $('.cmp-new').removeClass('cmp-new');
+
+        game.needsUpdate = false;
     }
 };
 setInterval(mainLoop, 20);
@@ -37,7 +79,7 @@ setInterval(mainLoop, 20);
 // Generic code for running actions on any elements with actions defined on them.
 $('body').on('click', '[action]', function () {
     var action = $(this).attr('action');
-    runCommand(action);
+    runCommand(action, true);
 });
 
 // Generic code for running actions on input elements that have submit-action defined on them.
@@ -48,5 +90,5 @@ $('body').on('keypress', '[submit-action]', function () {
     var value = $(this).val();
     if (isNaN(Number(value))) value = `"${value}"`;
     action = action.replace('{value}', value);
-    runCommand(action);
+    runCommand(action, true);
 });
